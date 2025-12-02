@@ -324,10 +324,44 @@ window.downloadDataset = function () {
     document.body.appendChild(a);
     a.click();
 
-    // Cleanup
+    // Fallback: Create a visible link in case auto-download fails
+    const fallbackLink = document.createElement("a");
+    fallbackLink.href = url;
+    fallbackLink.download = a.download;
+    fallbackLink.textContent = "Click here if download didn't start";
+    fallbackLink.style.display = "block";
+    fallbackLink.style.marginTop = "20px";
+    fallbackLink.style.color = "#4CAF50";
+    fallbackLink.style.fontSize = "18px";
+    fallbackLink.style.fontWeight = "bold";
+    fallbackLink.style.textDecoration = "underline";
+    fallbackLink.style.cursor = "pointer";
+
+    // Append to the modal if it exists
+    const modal = document.querySelector(".modal-gameover");
+    if (modal) {
+      // Remove any existing fallback links
+      const existing = modal.querySelector("a[download]");
+      if (existing) existing.remove();
+      modal.appendChild(fallbackLink);
+    } else {
+      // Fallback to body if modal is gone for some reason
+      fallbackLink.style.position = "fixed";
+      fallbackLink.style.bottom = "20px";
+      fallbackLink.style.left = "50%";
+      fallbackLink.style.transform = "translateX(-50%)";
+      fallbackLink.style.zIndex = "9999";
+      fallbackLink.style.backgroundColor = "white";
+      fallbackLink.style.padding = "10px";
+      fallbackLink.style.border = "2px solid black";
+      document.body.appendChild(fallbackLink);
+    }
+
+    // Cleanup (only remove the hidden anchor, keep the blob URL valid for the visible link)
     setTimeout(() => {
       document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
+      // We do NOT revoke the URL immediately so the fallback link works
+      // window.URL.revokeObjectURL(url); 
     }, 100);
   }).catch(function (err) {
     console.error("Error generating zip:", err);

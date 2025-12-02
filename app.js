@@ -397,6 +397,7 @@ function modalGameOver() {
 
 // DOWNLOAD FUNCTION
 window.downloadDataset = function () {
+  console.log("=== DOWNLOAD STARTED ===");
   console.log("Attempting to download data...");
 
   if (audioChunks.length === 0) {
@@ -409,6 +410,7 @@ window.downloadDataset = function () {
 
   // Get user metadata
   const userMeta = getUserMetadata();
+  console.log("User metadata retrieved:", userMeta);
 
   // Enrich session metadata with user information
   const enrichedData = {
@@ -439,6 +441,7 @@ window.downloadDataset = function () {
   const metadataStr = JSON.stringify(enrichedData, null, 2);
   zip.file("session_metadata.json", metadataStr);
   console.log("Added enriched metadata to zip:", sessionMetadata.length, "phrase events");
+  console.log("Metadata preview:", metadataStr.substring(0, 500) + "...");
 
   // Add Audio
   const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
@@ -447,61 +450,115 @@ window.downloadDataset = function () {
 
   // Generate and Download
   zip.generateAsync({ type: "blob" }).then(function (content) {
-    console.log("Zip generated. Size:", content.size);
-    const a = document.createElement("a");
-    const url = URL.createObjectURL(content);
-    a.href = url;
-    a.download = `falling_words_session_${Date.now()}.zip`;
+    console.log("Zip generated successfully!");
+    console.log("Zip size:", content.size, "bytes");
 
-    // Required for Firefox and some Chrome versions
-    document.body.appendChild(a);
-    a.click();
-
-    // Fallback: Create a visible link in case auto-download fails
-    const fallbackLink = document.createElement("a");
-    fallbackLink.href = url;
-    fallbackLink.download = a.download;
-    fallbackLink.textContent = "Click here if download didn't start";
-    fallbackLink.style.display = "block";
-    fallbackLink.style.marginTop = "20px";
-    fallbackLink.style.color = "#4CAF50";
-    fallbackLink.style.fontSize = "18px";
-    fallbackLink.style.fontWeight = "bold";
-    fallbackLink.style.textDecoration = "underline";
-    fallbackLink.style.cursor = "pointer";
-
-    // Append to the modal if it exists
-    const modal = document.querySelector(".modal-gameover");
-    if (modal) {
-      // Remove any existing fallback links
-      const existing = modal.querySelector("a[download]");
-      if (existing) existing.remove();
-      modal.appendChild(fallbackLink);
-    } else {
-      // Fallback to body if modal is gone for some reason
-      fallbackLink.style.position = "fixed";
-      fallbackLink.style.bottom = "20px";
-      fallbackLink.style.left = "50%";
-      fallbackLink.style.transform = "translateX(-50%)";
-      fallbackLink.style.zIndex = "9999";
-      fallbackLink.style.backgroundColor = "white";
-      fallbackLink.style.padding = "10px";
-      fallbackLink.style.border = "2px solid black";
-      document.body.appendChild(fallbackLink);
+    if (content.size === 0) {
+      console.error("ERROR: Generated ZIP is empty!");
+      alert("Error: Generated ZIP file is empty. Check console for details.");
+      return;
     }
 
-    // Cleanup (only remove the hidden anchor, keep the blob URL valid for the visible link)
-    setTimeout(() => {
-      document.body.removeChild(a);
-    }, 100);
+    const filename = `falling_words_session_${Date.now()}.zip`;
+    console.log("Filename:", filename);
 
-    // Method 2: Open in new tab as backup (user can Ctrl+S or right-click save)
-    setTimeout(() => {
-      window.open(url, '_blank');
+    // Create a new Blob with proper MIME type
+    const zipBlob = new Blob([content], { type: 'application/zip' });
+    console.log("Created ZIP blob with MIME type, size:", zipBlob.size);
 
-      // Create instruction message
+    // Use FileSaver.js - this bypasses ALL browser security issues!
+    console.log("Using FileSaver.js to download (bypasses browser security)...");
+    try {
+      saveAs(zipBlob, filename);
+      console.log("✅ FileSaver.js download triggered successfully!");
+    } catch (error) {
+      console.error("FileSaver.js error:", error);
+      console.log("Falling back to manual download method...");
+
+      // Fallback: Create download link
+      const url = URL.createObjectURL(zipBlob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.style.display = "none";
+      document.body.appendChild(a);
+
+      console.log("Triggering download via a.click()...");
+      a.click();
+
+      // DON'T cleanup too quickly - keep URL alive for download to complete
+      setTimeout(() => {
+        if (document.body.contains(a)) {
+          document.body.removeChild(a);
+        }
+        URL.revokeObjectURL(url);
+        console.log("Cleaned up download link (after 10 seconds)");
+      }, 10000);
+    }
+
+    // Method 2: Create visible fallback button (uses FileSaver.js on click)
+    setTimeout(() => {
       const modal = document.querySelector(".modal-gameover");
       if (modal) {
+        // Remove any existing fallback links
+        const existing = modal.querySelectorAll(".fallback-download-link");
+        existing.forEach(link => link.remove());
+
+        const fallbackButton = document.createElement("button");
+        fallbackButton.className = "fallback-download-link";
+        fallbackButton.textContent = "⬇️ CLICK HERE TO DOWNLOAD YOUR DATA";
+        fallbackButton.style.cssText = `
+          display: block;
+          margin: 20px auto;
+          padding: 15px 30px;
+          background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+          color: white;
+          font-size: 20px;
+          font-weight: bold;
+          text-decoration: none;
+          cursor: pointer;
+          text-align: center;
+          border-radius: 10px;
+          box-shadow: 0 4px 15px rgba(56, 239, 125, 0.4);
+          transition: transform 0.2s;
+          max-width: 400px;
+          border: none;
+        `;
+
+        fallbackButton.addEventListener('mouseenter', () => {
+          fallbackButton.style.transform = 'translateY(-2px)';
+        });
+
+        fallbackButton.addEventListener('mouseleave', () => {
+          fallbackButton.style.transform = 'translateY(0)';
+        });
+
+        // Use FileSaver.js when clicked
+        fallbackButton.addEventListener('click', () => {
+          console.log("Fallback button clicked, triggering download...");
+          try {
+            saveAs(zipBlob, filename);
+            console.log("✅ Download triggered via fallback button!");
+            fallbackButton.textContent = "✅ Download Started! Check your Downloads folder";
+            fallbackButton.style.background = "linear-gradient(135deg, #38ef7d 0%, #11998e 100%)";
+          } catch (err) {
+            console.error("Download error:", err);
+            alert("Download failed. Please try refreshing the page and playing again.");
+          }
+        });
+
+        modal.appendChild(fallbackButton);
+        console.log("Fallback download button created");
+      }
+    }, 500);
+
+    // Method 3: Add clear instructions
+    setTimeout(() => {
+      const modal = document.querySelector(".modal-gameover");
+      if (modal) {
+        const existingInst = modal.querySelector("#download-instructions");
+        if (existingInst) existingInst.remove();
+
         const instruction = document.createElement("div");
         instruction.id = "download-instructions";
         instruction.style.cssText = `
@@ -512,24 +569,24 @@ window.downloadDataset = function () {
           border-radius: 5px;
           font-size: 14px;
           line-height: 1.5;
+          text-align: center;
         `;
         instruction.innerHTML = `
-          <strong>📥 Download Instructions:</strong><br>
-          1. A new tab opened with your data<br>
-          2. In that tab, press <strong>Ctrl+S</strong> to save<br>
-          3. Or right-click and "Save as..."<br>
-          4. Filename: <code>falling_words_session_${Date.now()}.zip</code>
+          <strong>📥 Download Your Data:</strong><br><br>
+          <strong style="color: #38ef7d; font-size: 16px;">USE THE GREEN BUTTON ABOVE ☝️</strong><br><br>
+          File: <code style="background: rgba(255,255,255,0.2); padding: 2px 6px; border-radius: 3px;">${filename}</code><br>
+          Size: <strong>${Math.round(zipBlob.size / 1024)} KB</strong><br><br>
+          <em style="font-size: 12px;">If clicking doesn't work, try right-click → "Save link as..."</em>
         `;
 
-        // Remove any existing instructions
-        const existingInst = modal.querySelector("#download-instructions");
-        if (existingInst) existingInst.remove();
-
         modal.appendChild(instruction);
+        console.log("Instructions added");
       }
-    }, 800);
+    }, 700);
+
+    console.log("=== DOWNLOAD COMPLETE ===");
   }).catch(function (err) {
-    console.error("Error generating zip:", err);
+    console.error("ERROR generating zip:", err);
     alert("Failed to generate download package: " + err.message);
   });
 };

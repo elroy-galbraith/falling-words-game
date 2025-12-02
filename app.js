@@ -67,7 +67,7 @@ async function init() {
     setupSpeechRecognition();
 
     startTime = Date.now();
-    mediaRecorder.start();
+    mediaRecorder.start(1000); // Request data every 1 second
     recognition.start();
     micStatusID.innerText = "Microphone: Listening (REC)";
     micStatusID.style.color = "#00ff00"; // Green
@@ -91,15 +91,33 @@ async function init() {
 // SETUP AUDIO RECORDING
 async function setupAudioRecording() {
   const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  mediaRecorder = new MediaRecorder(stream);
+
+  // Try to use the best available audio format
+  let options = { mimeType: 'audio/webm;codecs=opus' };
+  if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+    options = { mimeType: 'audio/webm' };
+    if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+      options = { mimeType: '' }; // Use default
+    }
+  }
+
+  mediaRecorder = new MediaRecorder(stream, options);
+  console.log("MediaRecorder created with mimeType:", mediaRecorder.mimeType);
 
   mediaRecorder.ondataavailable = (event) => {
-    audioChunks.push(event.data);
+    if (event.data && event.data.size > 0) {
+      audioChunks.push(event.data);
+      console.log("Audio chunk received, size:", event.data.size, "Total chunks:", audioChunks.length);
+    }
   };
 
   mediaRecorder.onstop = () => {
-    // Recording stopped, ready to download
     console.log("Recording stopped. Total chunks:", audioChunks.length);
+    console.log("Total audio size:", audioChunks.reduce((sum, chunk) => sum + chunk.size, 0), "bytes");
+  };
+
+  mediaRecorder.onerror = (event) => {
+    console.error("MediaRecorder error:", event.error);
   };
 }
 
@@ -267,10 +285,17 @@ function showLevel() {
 
 // GAMEOVER MODAL WITH DOWNLOAD
 function modalGameOver() {
+  const debugInfo = `
+    <p style="color: white; font-size: 12px; margin-top: 10px;">
+      Debug: ${audioChunks.length} audio chunks, ${sessionMetadata.length} words recorded
+    </p>
+  `;
+
   return `
-    <div class="modal-gameover col-8">
+    <div class="modal-gameover col-8" id="game-over-container">
       <h1> Game Over </h2>
       <h2> Score: ${score} </h2>
+      ${debugInfo}
       
       <button id="DownloadData" class="my-2 btn-modal" onclick="downloadDataset()" style="background-color: #28a745;">
         <h6>Download Session Data</h6>
@@ -360,9 +385,41 @@ window.downloadDataset = function () {
     // Cleanup (only remove the hidden anchor, keep the blob URL valid for the visible link)
     setTimeout(() => {
       document.body.removeChild(a);
-      // We do NOT revoke the URL immediately so the fallback link works
-      // window.URL.revokeObjectURL(url); 
     }, 100);
+
+    // Method 2: Open in new tab as backup (user can Ctrl+S or right-click save)
+    setTimeout(() => {
+      window.open(url, '_blank');
+
+      // Create instruction message
+      const modal = document.querySelector(".modal-gameover");
+      if (modal) {
+        const instruction = document.createElement("div");
+        instruction.id = "download-instructions";
+        instruction.style.cssText = `
+          color: #FFD700;
+          background: rgba(0,0,0,0.7);
+          padding: 15px;
+          margin-top: 20px;
+          border-radius: 5px;
+          font-size: 14px;
+          line-height: 1.5;
+        `;
+        instruction.innerHTML = `
+          <strong>📥 Download Instructions:</strong><br>
+          1. A new tab opened with your data<br>
+          2. In that tab, press <strong>Ctrl+S</strong> to save<br>
+          3. Or right-click and "Save as..."<br>
+          4. Filename: <code>falling_words_session_${Date.now()}.zip</code>
+        `;
+
+        // Remove any existing instructions
+        const existingInst = modal.querySelector("#download-instructions");
+        if (existingInst) existingInst.remove();
+
+        modal.appendChild(instruction);
+      }
+    }, 800);
   }).catch(function (err) {
     console.error("Error generating zip:", err);
     alert("Failed to generate download package: " + err.message);

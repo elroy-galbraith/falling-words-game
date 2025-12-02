@@ -18,6 +18,7 @@
   },
   "homepage": "https://github.com/elroy-galbraith/falling-words-game#readme",
   "dependencies": {
+    "archiver": "^7.0.1",
     "cors": "^2.8.5",
     "express": "^5.2.1",
     "form-data": "^4.0.5",

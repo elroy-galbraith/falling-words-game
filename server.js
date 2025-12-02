@@ -3,10 +3,14 @@ const multer = require('multer');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
+const archiver = require('archiver');
 const db = require('./database');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Simple auth - change this secret!
+const ADMIN_KEY = process.env.ADMIN_KEY || 'your-secret-key-here';
 
 // Middleware
 app.use(cors());
@@ -104,6 +108,39 @@ app.post('/api/submit', upload.single('audio'), (req, res) => {
         console.error('Server error:', err);
         res.status(500).json({ error: 'Internal server error' });
     }
+});
+
+// Download all data as zip
+app.get('/api/export', (req, res) => {
+    // Basic auth check
+    if (req.query.key !== ADMIN_KEY) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const archive = archiver('zip', { zlib: { level: 9 } });
+
+    res.attachment(`voicefall-export-${Date.now()}.zip`);
+    archive.pipe(res);
+
+    // Add database file
+    archive.file('game_data.db', { name: 'game_data.db' });
+
+    // Add all uploads
+    archive.directory('uploads/', 'uploads');
+
+    archive.finalize();
+});
+
+// Quick stats endpoint (no auth, no sensitive data)
+app.get('/api/stats', (req, res) => {
+    db.get(`SELECT COUNT(*) as sessions FROM sessions`, (err, row) => {
+        const uploadsDir = './uploads';
+        const fileCount = fs.existsSync(uploadsDir) ? fs.readdirSync(uploadsDir).length : 0;
+        res.json({
+            totalSessions: row?.sessions || 0,
+            audioFiles: fileCount
+        });
+    });
 });
 
 // Start Server

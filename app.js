@@ -10,6 +10,7 @@ const inputElementID = document.getElementById('InputWord');
 const scoreElementID = document.getElementById('Score');
 const scoreElementClass = document.getElementsByClassName('score');
 const levelElementID = document.getElementById('Level');
+const micStatusID = document.getElementById('MicStatus');
 
 // VARIABLES
 const currentLevel = LEVEL;
@@ -21,13 +22,20 @@ let arrWords = [];
 let arrWordsDiv = [];
 let topVal = 0;
 
+// DATA COLLECTION VARIABLES
+let mediaRecorder;
+let audioChunks = [];
+let sessionMetadata = [];
+let recognition;
+let startTime;
+
 // SOUNDS
 const startGameSound = document.getElementById('StartGameSound');
 const gameoverSound = document.getElementById('GameoverSound');
 const pointSound = document.getElementById('PointSound');
 const notPointSound = document.getElementById('NotPointSound');
 
-// DEFAULT VOLUME (was too high)
+// DEFAULT VOLUME
 startGameSound.style.zIndex = 1;
 startGameSound.volume = 0.5;
 gameoverSound.volume = 0.5;
@@ -35,142 +43,142 @@ pointSound.volume = 0.2;
 
 // DICTIONARY WORDS
 const DICTIONARY = [
-  'school',
-  'college',
-  'btc',
-  'elon',
-  'musk',
-  'courses',
-  'internet',
-  'patience',
-  'argentina',
-  'motivation',
-  'tech',
-  'info',
-  'send',
-  'mate',
-  'reactjs',
-  'game',
-  'brusca',
-  'graphic',
-  'copper',
-  'boca',
-  'lie',
-  'case',
-  'expand',
-  'absence',
-  'football',
-  'native',
-  'demon',
-  'thread',
-  'award',
-  'tycoon',
-  'riquelme',
-  'still',
-  'empirical',
-  'doll',
-  'java',
-  'ackerman',
-  'dinner',
-  'register',
-  'proof',
-  'script',
-  'wrist',
-  'sulphur',
-  'selection',
-  'slam',
-  'grandmother',
-  'assertive',
-  'eaux',
-  'javascript',
-  'admiration',
-  'recognize',
-  'roll',
-  'bank',
-  'reactor',
-  'gradient',
-  'ribbon',
-  'slayer',
-  'pleasant',
-  'path',
-  'draft',
-  'polish',
-  'art',
-  'hook',
-  'messi',
-  'flow',
-  'operational',
-  'transaction',
-  'physics',
-  'rally',
-  'fold',
-  'housewife',
-  'suspicion',
-  'craft',
-  'objective',
-  'grass',
-  'reckless',
-  'manual',
-  'test',
-  'switch',
-  'diegote',
-  'silver',
-  'take',
-  'president',
-  'constituency',
-  'basis',
-  'cluster',
-  'psychology',
-  'cat',
-  'minimize',
-  'hide',
-  'chord',
-  'brilliance',
-  'official',
-  'condition',
-  'guideline',
-  'apology',
-  'general',
-  'sock',
-  'hunting',
-  'kinship',
-  'change',
-  'departure',
-  'mile',
-  'ancestor',
-  'diego',
-  'cheat',
-  'taxi',
-  'tight',
-  'moment',
-  'dimension',
-  'family',
-  'vegan',
-  'projection',
-  'demonstration',
-  'pony',
-  'standard',
-  'appendix',
-  'reluctance',
-  'gian',
-  'davinci',
-  'system',
-  'analyst',
-  'levi',
+  'school', 'college', 'btc', 'elon', 'musk', 'courses', 'internet', 'patience', 'argentina', 'motivation',
+  'tech', 'info', 'send', 'mate', 'reactjs', 'game', 'brusca', 'graphic', 'copper', 'boca',
+  'lie', 'case', 'expand', 'absence', 'football', 'native', 'demon', 'thread', 'award', 'tycoon',
+  'riquelme', 'still', 'empirical', 'doll', 'java', 'ackerman', 'dinner', 'register', 'proof', 'script',
+  'wrist', 'sulphur', 'selection', 'slam', 'grandmother', 'assertive', 'eaux', 'javascript', 'admiration', 'recognize',
+  'roll', 'bank', 'reactor', 'gradient', 'ribbon', 'slayer', 'pleasant', 'path', 'draft', 'polish',
+  'art', 'hook', 'messi', 'flow', 'operational', 'transaction', 'physics', 'rally', 'fold', 'housewife',
+  'suspicion', 'craft', 'objective', 'grass', 'reckless', 'manual', 'test', 'switch', 'diegote', 'silver',
+  'take', 'president', 'constituency', 'basis', 'cluster', 'psychology', 'cat', 'minimize', 'hide', 'chord',
+  'brilliance', 'official', 'condition', 'guideline', 'apology', 'general', 'sock', 'hunting', 'kinship', 'change',
+  'departure', 'mile', 'ancestor', 'diego', 'cheat', 'taxi', 'tight', 'moment', 'dimension', 'family',
+  'vegan', 'projection', 'demonstration', 'pony', 'standard', 'appendix', 'reluctance', 'gian', 'davinci', 'system',
+  'analyst', 'levi',
 ];
 
 // GAME START
-function init() {
+async function init() {
   showLevel();
-  setInterval(() => {
-    if (!gameOver) {
-      drawWord();
-    }
-  }, currentLevel);
-  updateWordPosition();
+  
+  try {
+    await setupAudioRecording();
+    setupSpeechRecognition();
+    
+    startTime = Date.now();
+    mediaRecorder.start();
+    recognition.start();
+    micStatusID.innerText = "Microphone: Listening (REC)";
+    micStatusID.style.color = "#00ff00"; // Green
+
+    // Start Game Loop
+    setInterval(() => {
+      if (!gameOver) {
+        drawWord();
+      }
+    }, currentLevel);
+    updateWordPosition();
+
+  } catch (err) {
+    console.error("Error initializing game:", err);
+    micStatusID.innerText = "Error: " + err.message;
+    micStatusID.style.color = "red";
+    alert("Microphone access is required to play this version of the game.");
+  }
 }
 
-// CREATE WORD, STORES IT IN AN ARRAY & GET POSITION WHERE IT STARTS TO FALLLS
+// SETUP AUDIO RECORDING
+async function setupAudioRecording() {
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  mediaRecorder = new MediaRecorder(stream);
+  
+  mediaRecorder.ondataavailable = (event) => {
+    audioChunks.push(event.data);
+  };
+
+  mediaRecorder.onstop = () => {
+    // Recording stopped, ready to download
+    console.log("Recording stopped. Total chunks:", audioChunks.length);
+  };
+}
+
+// SETUP SPEECH RECOGNITION
+function setupSpeechRecognition() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) {
+    alert("Your browser does not support Speech Recognition. Please use Chrome.");
+    return;
+  }
+
+  recognition = new SpeechRecognition();
+  recognition.continuous = true;
+  recognition.interimResults = false;
+  recognition.lang = 'en-US';
+
+  recognition.onresult = (event) => {
+    const lastResultIndex = event.results.length - 1;
+    const transcript = event.results[lastResultIndex][0].transcript.trim().toLowerCase();
+    console.log("Heard:", transcript);
+    
+    // Check the last word spoken (or multiple words if spoken fast)
+    // We split by space just in case multiple words came in one result
+    const wordsHeard = transcript.split(' ');
+    wordsHeard.forEach(word => checkWordMatch(word));
+  };
+
+  recognition.onend = () => {
+    if (!gameOver) {
+      recognition.start(); // Restart if game is still going
+    }
+  };
+  
+  recognition.onerror = (event) => {
+    console.error("Speech recognition error", event.error);
+    micStatusID.innerText = "Mic Error: " + event.error;
+  };
+}
+
+// CHECK MATCH
+function checkWordMatch(spokenWord) {
+  // Simple normalization
+  spokenWord = spokenWord.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+  if (arrWords.includes(spokenWord)) {
+    let indexWord = arrWords.indexOf(spokenWord);
+    let wordDiv = arrWordsDiv[indexWord];
+    
+    // Calculate Pressure Metric (0.0 = top, 1.0 = bottom/gameover)
+    let currentTop = parseInt(wordDiv.style.top.replace('px', ''));
+    let pressure = currentTop / gameHeight;
+
+    // Log Data
+    sessionMetadata.push({
+      word: spokenWord,
+      timestamp: Date.now() - startTime,
+      pressure_metric: parseFloat(pressure.toFixed(4)),
+      level: LEVEL
+    });
+
+    // Game Logic
+    updateScore();
+    arrWords.splice(indexWord, 1);
+    arrWordsDiv.splice(indexWord, 1);
+    wordDiv.parentNode.removeChild(wordDiv);
+    playSound(pointSound, 0, notPointSound);
+    
+    // Visual Feedback
+    inputElementID.value = `MATCH: ${spokenWord.toUpperCase()}!`;
+    setTimeout(() => { if(!gameOver) inputElementID.value = "Speak the words!"; }, 1000);
+
+  } else {
+    // Optional: Feedback for wrong words?
+    // playSound(notPointSound, 0, pointSound); 
+    // We might not want to punish every background noise, so maybe silent on mismatch
+  }
+}
+
+// CREATE WORD
 function drawWord() {
   const word = generateRandomWord(DICTIONARY);
   arrWords.push(word);
@@ -184,40 +192,18 @@ function drawWord() {
   gameContentClass[0].appendChild(wordDiv);
 }
 
-// GET RANDOM WORD FROM DICTIONARY
 function generateRandomWord(words) {
   return words[Math.floor(Math.random() * words.length)];
 }
 
-// GET VALUE FROM INPUT
-function getWord() {
-  let inputValue = inputElementID.value.toLowerCase();
-  inputElementID.value = '';
-  if (arrWords.includes(inputValue)) {
-    updateScore();
-    let indexWord = arrWords.indexOf(inputValue);
-    let wordDivIndex = arrWordsDiv[indexWord];
-    arrWords.splice(indexWord, 1);
-    arrWordsDiv.splice(indexWord, 1);
-    wordDivIndex.parentNode.removeChild(wordDivIndex);
-    playSound(pointSound, 0, notPointSound);
-  } else {
-    playSound(notPointSound, 0, pointSound);
-  }
-}
-
-// FALLING WORD LOGIC + GAMEOVER
+// FALLING LOGIC
 function updateWordPosition() {
   setInterval(() => {
     if (!gameOver) {
       let wordText = document.getElementsByClassName('word');
       for (let i = 0; i < arrWords.length; i++) {
         if (parseInt(topVal) + 15 > gameHeight) {
-          gameOver = true;
-          gameContentID.innerHTML = modalGameOver();
-          playSound(gameoverSound, 8, startGameSound);
-          gameoverSound.style.zIndex = 1;
-          inputElementID.setAttribute('disabled', true);
+          endGame();
         } else {
           topVal = wordText[i].style.top;
           topVal.replace('px', '');
@@ -228,17 +214,31 @@ function updateWordPosition() {
   }, 20);
 }
 
-// UPDATE SCORE
+function endGame() {
+  gameOver = true;
+  
+  // Stop Recording
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    mediaRecorder.stop();
+  }
+  if (recognition) {
+    recognition.stop();
+  }
+
+  gameContentID.innerHTML = modalGameOver();
+  playSound(gameoverSound, 8, startGameSound);
+  gameoverSound.style.zIndex = 1;
+  inputElementID.setAttribute('disabled', true);
+  inputElementID.value = "GAME OVER";
+}
+
 function updateScore() {
   score += 10;
   scoreElementID.innerHTML = `<p>Score ${score}</p>`;
 }
 
-// HELPERS
-// PLAY SOUND
 function playSound(sound, time, stopSound) {
   let playPromise = sound.play();
-
   if (playPromise !== undefined) {
     playPromise
       .then(() => {
@@ -255,7 +255,6 @@ function playSound(sound, time, stopSound) {
   }
 }
 
-// SHOWS CURRENT PLAYING LEVEL
 function showLevel() {
   if (LEVEL === '3000') {
     levelElementID.innerHTML = `<p>Level: EASY</p>`;
@@ -266,12 +265,17 @@ function showLevel() {
   }
 }
 
-// GAMEOVER MODAL
+// GAMEOVER MODAL WITH DOWNLOAD
 function modalGameOver() {
   return `
     <div class="modal-gameover col-8">
       <h1> Game Over </h2>
       <h2> Score: ${score} </h2>
+      
+      <button id="DownloadData" class="my-2 btn-modal" onclick="downloadDataset()" style="background-color: #28a745;">
+        <h6>Download Session Data</h6>
+      </button>
+
       <button id="Restart" class="my-2 btn-modal">
         <a href="game.html?lvl=${currentLevel}">
           <h6>Restart</h6>
@@ -285,5 +289,25 @@ function modalGameOver() {
     </div>
   `;
 }
+
+// DOWNLOAD FUNCTION
+window.downloadDataset = function() {
+  const zip = new JSZip();
+  
+  // Add Metadata
+  zip.file("session_metadata.json", JSON.stringify(sessionMetadata, null, 2));
+  
+  // Add Audio
+  const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+  zip.file("session_audio.webm", audioBlob);
+
+  // Generate and Download
+  zip.generateAsync({ type: "blob" }).then(function(content) {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(content);
+    a.download = `falling_words_session_${Date.now()}.zip`;
+    a.click();
+  });
+};
 
 init();

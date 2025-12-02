@@ -27,7 +27,7 @@ h6 {
   padding: 5px 0;
   background-color: rgba(0, 0, 0, 0.8);
   -webkit-backdrop-filter: blur(20px);
-          backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
 }
 
 #GameContent {
@@ -42,10 +42,14 @@ h6 {
 .word {
   position: absolute;
   background-color: red;
-  padding: 0 10;
+  padding: 5px 15px;
+  min-width: 150px;
+  max-width: 400px;
   width: auto;
   height: auto;
   text-align: center;
+  white-space: nowrap;
+  font-size: 16px;
 }
 
 .word p {
@@ -59,7 +63,7 @@ h6 {
   padding: 40px 30px;
   background-color: rgba(0, 0, 0, 0.8);
   -webkit-backdrop-filter: blur(20px);
-          backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
 }
 
 input {

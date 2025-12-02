@@ -41,21 +41,58 @@ startGameSound.volume = 0.5;
 gameoverSound.volume = 0.5;
 pointSound.volume = 0.2;
 
-// DICTIONARY WORDS
+// DICTIONARY PHRASES
 const DICTIONARY = [
-  'school', 'college', 'btc', 'elon', 'musk', 'courses', 'internet', 'patience', 'argentina', 'motivation',
-  'tech', 'info', 'send', 'mate', 'reactjs', 'game', 'brusca', 'graphic', 'copper', 'boca',
-  'lie', 'case', 'expand', 'absence', 'football', 'native', 'demon', 'thread', 'award', 'tycoon',
-  'riquelme', 'still', 'empirical', 'doll', 'java', 'ackerman', 'dinner', 'register', 'proof', 'script',
-  'wrist', 'sulphur', 'selection', 'slam', 'grandmother', 'assertive', 'eaux', 'javascript', 'admiration', 'recognize',
-  'roll', 'bank', 'reactor', 'gradient', 'ribbon', 'slayer', 'pleasant', 'path', 'draft', 'polish',
-  'art', 'hook', 'messi', 'flow', 'operational', 'transaction', 'physics', 'rally', 'fold', 'housewife',
-  'suspicion', 'craft', 'objective', 'grass', 'reckless', 'manual', 'test', 'switch', 'diegote', 'silver',
-  'take', 'president', 'constituency', 'basis', 'cluster', 'psychology', 'cat', 'minimize', 'hide', 'chord',
-  'brilliance', 'official', 'condition', 'guideline', 'apology', 'general', 'sock', 'hunting', 'kinship', 'change',
-  'departure', 'mile', 'ancestor', 'diego', 'cheat', 'taxi', 'tight', 'moment', 'dimension', 'family',
-  'vegan', 'projection', 'demonstration', 'pony', 'standard', 'appendix', 'reluctance', 'gian', 'davinci', 'system',
-  'analyst', 'levi',
+  'hello world',
+  'good morning',
+  'thank you very much',
+  'how are you doing',
+  'see you later',
+  'have a nice day',
+  'what time is it',
+  'please help me',
+  'I appreciate it',
+  'nice to meet you',
+  'take care of yourself',
+  'let me know',
+  'sounds good to me',
+  'I will be right back',
+  'it was a pleasure',
+  'hope you feel better',
+  'make yourself at home',
+  'long time no see',
+  'what do you think',
+  'I am not sure',
+  'could you please',
+  'excuse me sir',
+  'that makes sense',
+  'I understand now',
+  'have a great day',
+  'you are welcome',
+  'no problem at all',
+  'I will do my best',
+  'looking forward to it',
+  'let us get started',
+  'thanks for your time',
+  'see you tomorrow',
+  'talk to you later',
+  'I really appreciate that',
+  'that is very kind',
+  'what brings you here',
+  'how can I help',
+  'just a moment please',
+  'I will check that',
+  'sounds like a plan',
+  'I agree with you',
+  'that is a good point',
+  'I had a great time',
+  'catch you later',
+  'take it easy',
+  'no worries at all',
+  'I will keep that in mind',
+  'good to see you',
+  'how have you been',
+  'thanks for letting me know',
 ];
 
 // GAME START
@@ -139,10 +176,8 @@ function setupSpeechRecognition() {
     const transcript = event.results[lastResultIndex][0].transcript.trim().toLowerCase();
     console.log("Heard:", transcript);
 
-    // Check the last word spoken (or multiple words if spoken fast)
-    // We split by space just in case multiple words came in one result
-    const wordsHeard = transcript.split(' ');
-    wordsHeard.forEach(word => checkWordMatch(word));
+    // Check if the full transcript matches any phrase
+    checkPhraseMatch(transcript);
   };
 
   recognition.onend = () => {
@@ -157,42 +192,44 @@ function setupSpeechRecognition() {
   };
 }
 
-// CHECK MATCH
-function checkWordMatch(spokenWord) {
-  // Simple normalization
-  spokenWord = spokenWord.toLowerCase().replace(/[^a-z0-9]/g, '');
+// CHECK PHRASE MATCH
+function checkPhraseMatch(spokenTranscript) {
+  // Normalize the transcript
+  spokenTranscript = spokenTranscript.toLowerCase().replace(/[^a-z0-9\s]/g, '');
 
-  if (arrWords.includes(spokenWord)) {
-    let indexWord = arrWords.indexOf(spokenWord);
-    let wordDiv = arrWordsDiv[indexWord];
+  // Check if any active phrase matches
+  for (let i = 0; i < arrWords.length; i++) {
+    const phrase = arrWords[i];
 
-    // Calculate Pressure Metric (0.0 = top, 1.0 = bottom/gameover)
-    let currentTop = parseInt(wordDiv.style.top.replace('px', ''));
-    let pressure = currentTop / gameHeight;
+    // Check if the spoken transcript contains or exactly matches the phrase
+    if (spokenTranscript === phrase || spokenTranscript.includes(phrase)) {
+      let wordDiv = arrWordsDiv[i];
 
-    // Log Data
-    sessionMetadata.push({
-      word: spokenWord,
-      timestamp: Date.now() - startTime,
-      pressure_metric: parseFloat(pressure.toFixed(4)),
-      level: LEVEL
-    });
+      // Calculate Pressure Metric (0.0 = top, 1.0 = bottom/gameover)
+      let currentTop = parseInt(wordDiv.style.top.replace('px', ''));
+      let pressure = currentTop / gameHeight;
 
-    // Game Logic
-    updateScore();
-    arrWords.splice(indexWord, 1);
-    arrWordsDiv.splice(indexWord, 1);
-    wordDiv.parentNode.removeChild(wordDiv);
-    playSound(pointSound, 0, notPointSound);
+      // Log Data
+      sessionMetadata.push({
+        phrase: phrase,
+        timestamp: Date.now() - startTime,
+        pressure_metric: parseFloat(pressure.toFixed(4)),
+        level: LEVEL
+      });
 
-    // Visual Feedback
-    inputElementID.value = `MATCH: ${spokenWord.toUpperCase()}!`;
-    setTimeout(() => { if (!gameOver) inputElementID.value = "Speak the words!"; }, 1000);
+      // Game Logic
+      updateScore();
+      arrWords.splice(i, 1);
+      arrWordsDiv.splice(i, 1);
+      wordDiv.parentNode.removeChild(wordDiv);
+      playSound(pointSound, 0, notPointSound);
 
-  } else {
-    // Optional: Feedback for wrong words?
-    // playSound(notPointSound, 0, pointSound); 
-    // We might not want to punish every background noise, so maybe silent on mismatch
+      // Visual Feedback
+      inputElementID.value = `MATCH: ${phrase.toUpperCase()}!`;
+      setTimeout(() => { if (!gameOver) inputElementID.value = "Speak the phrases!"; }, 1500);
+
+      break; // Only match one phrase per utterance
+    }
   }
 }
 
@@ -287,7 +324,7 @@ function showLevel() {
 function modalGameOver() {
   const debugInfo = `
     <p style="color: white; font-size: 12px; margin-top: 10px;">
-      Debug: ${audioChunks.length} audio chunks, ${sessionMetadata.length} words recorded
+      Debug: ${audioChunks.length} audio chunks, ${sessionMetadata.length} phrases recorded
     </p>
   `;
 

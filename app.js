@@ -61,11 +61,11 @@ const DICTIONARY = [
 // GAME START
 async function init() {
   showLevel();
-  
+
   try {
     await setupAudioRecording();
     setupSpeechRecognition();
-    
+
     startTime = Date.now();
     mediaRecorder.start();
     recognition.start();
@@ -92,7 +92,7 @@ async function init() {
 async function setupAudioRecording() {
   const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
   mediaRecorder = new MediaRecorder(stream);
-  
+
   mediaRecorder.ondataavailable = (event) => {
     audioChunks.push(event.data);
   };
@@ -120,7 +120,7 @@ function setupSpeechRecognition() {
     const lastResultIndex = event.results.length - 1;
     const transcript = event.results[lastResultIndex][0].transcript.trim().toLowerCase();
     console.log("Heard:", transcript);
-    
+
     // Check the last word spoken (or multiple words if spoken fast)
     // We split by space just in case multiple words came in one result
     const wordsHeard = transcript.split(' ');
@@ -132,7 +132,7 @@ function setupSpeechRecognition() {
       recognition.start(); // Restart if game is still going
     }
   };
-  
+
   recognition.onerror = (event) => {
     console.error("Speech recognition error", event.error);
     micStatusID.innerText = "Mic Error: " + event.error;
@@ -147,7 +147,7 @@ function checkWordMatch(spokenWord) {
   if (arrWords.includes(spokenWord)) {
     let indexWord = arrWords.indexOf(spokenWord);
     let wordDiv = arrWordsDiv[indexWord];
-    
+
     // Calculate Pressure Metric (0.0 = top, 1.0 = bottom/gameover)
     let currentTop = parseInt(wordDiv.style.top.replace('px', ''));
     let pressure = currentTop / gameHeight;
@@ -166,10 +166,10 @@ function checkWordMatch(spokenWord) {
     arrWordsDiv.splice(indexWord, 1);
     wordDiv.parentNode.removeChild(wordDiv);
     playSound(pointSound, 0, notPointSound);
-    
+
     // Visual Feedback
     inputElementID.value = `MATCH: ${spokenWord.toUpperCase()}!`;
-    setTimeout(() => { if(!gameOver) inputElementID.value = "Speak the words!"; }, 1000);
+    setTimeout(() => { if (!gameOver) inputElementID.value = "Speak the words!"; }, 1000);
 
   } else {
     // Optional: Feedback for wrong words?
@@ -216,7 +216,7 @@ function updateWordPosition() {
 
 function endGame() {
   gameOver = true;
-  
+
   // Stop Recording
   if (mediaRecorder && mediaRecorder.state !== 'inactive') {
     mediaRecorder.stop();
@@ -291,22 +291,47 @@ function modalGameOver() {
 }
 
 // DOWNLOAD FUNCTION
-window.downloadDataset = function() {
+window.downloadDataset = function () {
+  console.log("Attempting to download data...");
+
+  if (audioChunks.length === 0) {
+    alert("No audio data recorded. Did you allow microphone access?");
+    console.warn("Audio chunks are empty.");
+    return;
+  }
+
   const zip = new JSZip();
-  
+
   // Add Metadata
-  zip.file("session_metadata.json", JSON.stringify(sessionMetadata, null, 2));
-  
+  const metadataStr = JSON.stringify(sessionMetadata, null, 2);
+  zip.file("session_metadata.json", metadataStr);
+  console.log("Added metadata to zip:", sessionMetadata.length, "entries");
+
   // Add Audio
   const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
   zip.file("session_audio.webm", audioBlob);
+  console.log("Added audio to zip. Size:", audioBlob.size, "bytes");
 
   // Generate and Download
-  zip.generateAsync({ type: "blob" }).then(function(content) {
+  zip.generateAsync({ type: "blob" }).then(function (content) {
+    console.log("Zip generated. Size:", content.size);
     const a = document.createElement("a");
-    a.href = URL.createObjectURL(content);
+    const url = URL.createObjectURL(content);
+    a.href = url;
     a.download = `falling_words_session_${Date.now()}.zip`;
+
+    // Required for Firefox and some Chrome versions
+    document.body.appendChild(a);
     a.click();
+
+    // Cleanup
+    setTimeout(() => {
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    }, 100);
+  }).catch(function (err) {
+    console.error("Error generating zip:", err);
+    alert("Failed to generate download package: " + err.message);
   });
 };
 

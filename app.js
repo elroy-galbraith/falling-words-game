@@ -99,29 +99,62 @@ const DICTIONARY = [
 async function init() {
   showLevel();
 
-  try {
-    await setupAudioRecording();
-    setupSpeechRecognition();
+  // Show consent modal first
+  const consent = await showConsentModal();
 
-    startTime = Date.now();
-    mediaRecorder.start(1000); // Request data every 1 second
-    recognition.start();
-    micStatusID.innerText = "Microphone: Listening (REC)";
-    micStatusID.style.color = "#00ff00"; // Green
+  if (consent.hasConsented) {
+    console.log('User consented. Starting with data collection.');
+    console.log('User ID:', consent.userId);
 
-    // Start Game Loop
-    setInterval(() => {
-      if (!gameOver) {
-        drawWord();
-      }
-    }, currentLevel);
-    updateWordPosition();
+    try {
+      await setupAudioRecording();
+      setupSpeechRecognition();
 
-  } catch (err) {
-    console.error("Error initializing game:", err);
-    micStatusID.innerText = "Error: " + err.message;
-    micStatusID.style.color = "red";
-    alert("Microphone access is required to play this version of the game.");
+      startTime = Date.now();
+      mediaRecorder.start(1000); // Request data every 1 second
+      recognition.start();
+      micStatusID.innerText = "Microphone: Listening (REC)";
+      micStatusID.style.color = "#00ff00"; // Green
+
+      // Start Game Loop
+      setInterval(() => {
+        if (!gameOver) {
+          drawWord();
+        }
+      }, currentLevel);
+      updateWordPosition();
+
+    } catch (err) {
+      console.error("Error initializing game:", err);
+      micStatusID.innerText = "Error: " + err.message;
+      micStatusID.style.color = "red";
+      alert("Microphone access is required to play this version of the game.");
+    }
+  } else {
+    console.log('User declined consent. Starting without data collection.');
+
+    try {
+      // Still need speech recognition to play, but no recording
+      setupSpeechRecognition();
+
+      recognition.start();
+      micStatusID.innerText = "Microphone: Listening (No Recording)";
+      micStatusID.style.color = "#ffaa00"; // Orange
+
+      // Start Game Loop
+      setInterval(() => {
+        if (!gameOver) {
+          drawWord();
+        }
+      }, currentLevel);
+      updateWordPosition();
+
+    } catch (err) {
+      console.error("Error initializing game:", err);
+      micStatusID.innerText = "Error: " + err.message;
+      micStatusID.style.color = "red";
+      alert("Microphone access is required to play this game.");
+    }
   }
 }
 
@@ -272,8 +305,8 @@ function updateWordPosition() {
 function endGame() {
   gameOver = true;
 
-  // Stop Recording
-  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+  // Stop Recording only if user consented
+  if (hasUserConsented() && mediaRecorder && mediaRecorder.state !== 'inactive') {
     mediaRecorder.stop();
   }
   if (recognition) {
@@ -322,9 +355,21 @@ function showLevel() {
 
 // GAMEOVER MODAL WITH DOWNLOAD
 function modalGameOver() {
-  const debugInfo = `
+  const hasConsent = hasUserConsented();
+
+  const debugInfo = hasConsent ? `
     <p style="color: white; font-size: 12px; margin-top: 10px;">
       Debug: ${audioChunks.length} audio chunks, ${sessionMetadata.length} phrases recorded
+    </p>
+  ` : '';
+
+  const downloadButton = hasConsent ? `
+    <button id="DownloadData" class="my-2 btn-modal" onclick="downloadDataset()" style="background-color: #28a745;">
+      <h6>Download Session Data</h6>
+    </button>
+  ` : `
+    <p style="color: rgba(255,255,255,0.6); font-size: 14px; margin: 20px 0;">
+      No data was collected (you did not consent to recording)
     </p>
   `;
 
@@ -334,9 +379,7 @@ function modalGameOver() {
       <h2> Score: ${score} </h2>
       ${debugInfo}
       
-      <button id="DownloadData" class="my-2 btn-modal" onclick="downloadDataset()" style="background-color: #28a745;">
-        <h6>Download Session Data</h6>
-      </button>
+      ${downloadButton}
 
       <button id="Restart" class="my-2 btn-modal">
         <a href="game.html?lvl=${currentLevel}">
@@ -364,10 +407,38 @@ window.downloadDataset = function () {
 
   const zip = new JSZip();
 
-  // Add Metadata
-  const metadataStr = JSON.stringify(sessionMetadata, null, 2);
+  // Get user metadata
+  const userMeta = getUserMetadata();
+
+  // Enrich session metadata with user information
+  const enrichedData = {
+    user_metadata: {
+      user_id: userMeta.userId,
+      sex: userMeta.sex,
+      age: userMeta.age,
+      stress_level: userMeta.stressLevel,
+      nationality: userMeta.nationality,
+      mother_tongue: userMeta.motherTongue,
+      consent_timestamp: userMeta.consentTimestamp
+    },
+    session_info: {
+      level: LEVEL,
+      start_time: startTime,
+      end_time: Date.now(),
+      duration_ms: Date.now() - startTime,
+      total_score: score,
+      phrases_matched: sessionMetadata.length
+    },
+    phrase_events: sessionMetadata.map(event => ({
+      ...event,
+      user_id: userMeta.userId  // Attach user_id to each event
+    }))
+  };
+
+  // Add Enriched Metadata
+  const metadataStr = JSON.stringify(enrichedData, null, 2);
   zip.file("session_metadata.json", metadataStr);
-  console.log("Added metadata to zip:", sessionMetadata.length, "entries");
+  console.log("Added enriched metadata to zip:", sessionMetadata.length, "phrase events");
 
   // Add Audio
   const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });

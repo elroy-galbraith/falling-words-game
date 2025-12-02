@@ -458,7 +458,7 @@ async function uploadSessionData() {
     formData.append('audio', audioBlob, 'session_audio.webm');
 
     // 3. Send Request
-    const response = await fetch('http://localhost:3000/api/submit', {
+    const response = await fetch('/api/submit', {
       method: 'POST',
       body: formData
     });

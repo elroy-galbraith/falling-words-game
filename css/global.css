@@ -3,6 +3,22 @@
   src: url('../font/karcade.ttf');
 }
 
+/* CSS Variables for consistent theming */
+:root {
+  --primary-neon: #00f5ff;
+  --secondary-neon: #ff00ff;
+  --accent-yellow: #f0ff00;
+  --accent-green: #39ff14;
+  --glass-bg: rgba(10, 10, 30, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --text-primary: #ffffff;
+  --text-secondary: rgba(255, 255, 255, 0.8);
+  --danger: #ff4757;
+  --success: #2ed573;
+  --shadow-neon: 0 0 20px rgba(0, 245, 255, 0.3);
+  --shadow-pink: 0 0 20px rgba(255, 0, 255, 0.3);
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -10,42 +26,223 @@
   -webkit-box-sizing: border-box;
 }
 
-body {
-  font-family: 'karcade';
-  background-image: url('https://wallpapercave.com/wp/wp4989891.jpg');
-  background-repeat: no-repeat;
-  background-size: cover;
-  background-position: center;
-  min-height: min-content;
-  height: 100vh;
-  width: 100vw;
+html {
+  scroll-behavior: smooth;
 }
 
-input {
-  margin-top: 50px;
+body {
+  font-family: 'karcade', 'Orbitron', 'Rajdhani', sans-serif;
+  background: linear-gradient(135deg, #0a0a1a 0%, #1a0a2e 50%, #0a1a2e 100%);
+  background-attachment: fixed;
+  min-height: 100vh;
+  width: 100%;
+  color: var(--text-primary);
+  overflow-x: hidden;
+  position: relative;
+}
+
+/* Animated starfield background */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: 
+      radial-gradient(2px 2px at 20px 30px, rgba(255, 255, 255, 0.8), transparent),
+      radial-gradient(2px 2px at 40px 70px, rgba(0, 245, 255, 0.6), transparent),
+      radial-gradient(1px 1px at 90px 40px, rgba(255, 255, 255, 0.6), transparent),
+      radial-gradient(2px 2px at 130px 80px, rgba(255, 0, 255, 0.5), transparent),
+      radial-gradient(1px 1px at 160px 120px, rgba(255, 255, 255, 0.7), transparent);
+  background-size: 200px 200px;
+  animation: twinkle 4s ease-in-out infinite alternate;
+  pointer-events: none;
+  z-index: 0;
+}
+
+@keyframes twinkle {
+  0% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+
+/* Ensure content is above starfield */
+body > * {
+  position: relative;
+  z-index: 1;
 }
 
 p {
   margin-bottom: 0;
+  line-height: 1.6;
+}
+
+/* Selection styling */
+::selection {
+  background: var(--secondary-neon);
+  color: var(--text-primary);
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--glass-bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--primary-neon), var(--secondary-neon));
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, var(--secondary-neon), var(--primary-neon));
 }
 
 /*** Navbar ***/
-
 .navbar {
-  padding-top: 30px;
+  padding: 20px 30px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--glass-border);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
 }
 
-.nav-link,
 .navbar-brand {
-  color: white;
+  color: var(--primary-neon) !important;
+  font-size: 1.8rem;
+  text-shadow: 
+      0 0 10px var(--primary-neon),
+      0 0 20px var(--primary-neon),
+      0 0 40px var(--primary-neon);
+  letter-spacing: 3px;
+  transition: all 0.3s ease;
+}
+
+.navbar-brand:hover {
+  color: var(--accent-yellow) !important;
+  text-shadow: 
+      0 0 10px var(--accent-yellow),
+      0 0 20px var(--accent-yellow),
+      0 0 40px var(--accent-yellow);
+  transform: scale(1.05);
 }
 
 .nav-link {
-  transition: all 0.5s;
+  color: var(--text-secondary) !important;
+  font-size: 0.9rem;
+  letter-spacing: 2px;
+  padding: 10px 20px !important;
+  margin: 0 5px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.nav-link::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--primary-neon), var(--secondary-neon));
+  transition: all 0.3s ease;
+  transform: translateX(-50%);
 }
 
 .nav-link:hover {
-  background-color: rgba(192, 125, 255, 0.63);
-  color: rgb(238, 255, 0) !important;
-  transform: translateY(-4px);
+  color: var(--accent-yellow) !important;
+  background: rgba(255, 0, 255, 0.15);
+  border-color: var(--secondary-neon);
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-pink);
+}
+
+.nav-link:hover::before {
+  width: 80%;
+}
+
+.nav-link.active {
+  color: var(--primary-neon) !important;
+  background: rgba(0, 245, 255, 0.1);
+  border-color: var(--primary-neon);
+}
+
+/* Utility Classes */
+.neon-text {
+  text-shadow: 
+      0 0 5px currentColor,
+      0 0 10px currentColor,
+      0 0 20px currentColor;
+}
+
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+}
+
+.neon-border {
+  border: 2px solid var(--primary-neon);
+  box-shadow: 
+      0 0 10px var(--primary-neon),
+      inset 0 0 10px rgba(0, 245, 255, 0.1);
+}
+
+/* Button base styles */
+.btn-neon {
+  padding: 12px 30px;
+  font-family: inherit;
+  font-size: 0.9rem;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  border: 2px solid var(--primary-neon);
+  background: transparent;
+  color: var(--primary-neon);
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.btn-neon:hover {
+  background: var(--primary-neon);
+  color: #0a0a1a;
+  box-shadow: var(--shadow-neon);
+  transform: translateY(-2px);
+}
+
+.btn-neon-pink {
+  border-color: var(--secondary-neon);
+  color: var(--secondary-neon);
+}
+
+.btn-neon-pink:hover {
+  background: var(--secondary-neon);
+  box-shadow: var(--shadow-pink);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .navbar {
+      padding: 15px 20px;
+  }
+  
+  .navbar-brand {
+      font-size: 1.4rem;
+  }
+  
+  .nav-link {
+      padding: 8px 15px !important;
+      font-size: 0.8rem;
+  }
 }

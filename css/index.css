@@ -42,3 +42,11 @@ h2 {
   margin: 0 !important;
   padding: 0.5rem 0 !important;
 }
+
+/*** Logo ***/
+.logo-container img {
+  max-width: 60%;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+}

@@ -100,7 +100,11 @@ async function init() {
   showLevel();
 
   // Show consent modal first
+  console.log("Calling showConsentModal...");
+
+  // Wait indefinitely for user to consent or decline
   const consent = await showConsentModal();
+  console.log("Consent result:", consent);
 
   if (consent.hasConsented) {
     console.log('User consented. Starting with data collection.');
@@ -353,7 +357,7 @@ function showLevel() {
   }
 }
 
-// GAMEOVER MODAL WITH DOWNLOAD
+// GAMEOVER MODAL WITH UPLOAD
 function modalGameOver() {
   const hasConsent = hasUserConsented();
 
@@ -363,9 +367,9 @@ function modalGameOver() {
     </p>
   ` : '';
 
-  const downloadButton = hasConsent ? `
-    <button id="DownloadData" class="my-2 btn-modal" onclick="downloadDataset()" style="background-color: #28a745;">
-      <h6>Download Session Data</h6>
+  const actionButtons = hasConsent ? `
+    <button id="UploadData" class="my-2 btn-modal" onclick="uploadSessionData()" style="background-color: #28a745;">
+      <h6>Submit Session Data</h6>
     </button>
   ` : `
     <p style="color: rgba(255,255,255,0.6); font-size: 14px; margin: 20px 0;">
@@ -379,7 +383,7 @@ function modalGameOver() {
       <h2> Score: ${score} </h2>
       ${debugInfo}
       
-      ${downloadButton}
+      ${actionButtons}
 
       <button id="Restart" class="my-2 btn-modal">
         <a href="game.html?lvl=${currentLevel}">
@@ -396,199 +400,98 @@ function modalGameOver() {
 }
 
 // DOWNLOAD FUNCTION
-window.downloadDataset = function () {
-  console.log("=== DOWNLOAD STARTED ===");
-  console.log("Attempting to download data...");
+// UPLOAD FUNCTION
+async function uploadSessionData() {
+  console.log("=== UPLOAD STARTED ===");
 
   if (audioChunks.length === 0) {
-    alert("No audio data recorded. Did you allow microphone access?");
-    console.warn("Audio chunks are empty.");
+    console.warn("No audio data recorded.");
     return;
   }
 
-  const zip = new JSZip();
+  // Visual Feedback: Uploading
+  const modalContainer = document.querySelector(".modal-gameover");
+  const uploadStatusDiv = document.createElement("div");
+  uploadStatusDiv.id = "upload-status";
+  uploadStatusDiv.style.marginTop = "20px";
+  uploadStatusDiv.innerHTML = `
+    <div class="spinner-border text-light" role="status">
+      <span class="visually-hidden">Loading...</span>
+    </div>
+    <p class="text-white mt-2">Uploading session data...</p>
+  `;
+  // Remove existing buttons to prevent double submission or navigation
+  const existingButtons = modalContainer.querySelectorAll("button");
+  existingButtons.forEach(btn => btn.style.display = "none");
 
-  // Get user metadata
-  const userMeta = getUserMetadata();
-  console.log("User metadata retrieved:", userMeta);
+  modalContainer.appendChild(uploadStatusDiv);
 
-  // Enrich session metadata with user information
-  const enrichedData = {
-    user_metadata: {
-      user_id: userMeta.userId,
-      sex: userMeta.sex,
-      age: userMeta.age,
-      stress_level: userMeta.stressLevel,
-      nationality: userMeta.nationality,
-      mother_tongue: userMeta.motherTongue,
-      consent_timestamp: userMeta.consentTimestamp
-    },
-    session_info: {
-      level: LEVEL,
-      start_time: startTime,
-      end_time: Date.now(),
-      duration_ms: Date.now() - startTime,
-      total_score: score,
-      phrases_matched: sessionMetadata.length
-    },
-    phrase_events: sessionMetadata.map(event => ({
-      ...event,
-      user_id: userMeta.userId  // Attach user_id to each event
-    }))
-  };
+  try {
+    // 1. Prepare Data
+    const userMeta = getUserMetadata();
+    const enrichedData = {
+      user_metadata: {
+        user_id: userMeta.userId,
+        sex: userMeta.sex,
+        age: userMeta.age,
+        stress_level: userMeta.stressLevel,
+        nationality: userMeta.nationality,
+        mother_tongue: userMeta.motherTongue,
+        consent_timestamp: userMeta.consentTimestamp
+      },
+      session_info: {
+        level: LEVEL,
+        start_time: startTime,
+        end_time: Date.now(),
+        duration_ms: Date.now() - startTime,
+        total_score: score,
+        phrases_matched: sessionMetadata.length
+      },
+      phrase_events: sessionMetadata
+    };
 
-  // Add Enriched Metadata
-  const metadataStr = JSON.stringify(enrichedData, null, 2);
-  zip.file("session_metadata.json", metadataStr);
-  console.log("Added enriched metadata to zip:", sessionMetadata.length, "phrase events");
-  console.log("Metadata preview:", metadataStr.substring(0, 500) + "...");
+    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
 
-  // Add Audio
-  const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-  zip.file("session_audio.webm", audioBlob);
-  console.log("Added audio to zip. Size:", audioBlob.size, "bytes");
+    // 2. Create FormData
+    const formData = new FormData();
+    formData.append('metadata', JSON.stringify(enrichedData));
+    formData.append('audio', audioBlob, 'session_audio.webm');
 
-  // Generate and Download
-  zip.generateAsync({ type: "blob" }).then(function (content) {
-    console.log("Zip generated successfully!");
-    console.log("Zip size:", content.size, "bytes");
+    // 3. Send Request
+    const response = await fetch('http://localhost:3000/api/submit', {
+      method: 'POST',
+      body: formData
+    });
 
-    if (content.size === 0) {
-      console.error("ERROR: Generated ZIP is empty!");
-      alert("Error: Generated ZIP file is empty. Check console for details.");
-      return;
+    if (!response.ok) {
+      throw new Error(`Server responded with ${response.status}`);
     }
 
-    const filename = `falling_words_session_${Date.now()}.zip`;
-    console.log("Filename:", filename);
+    const result = await response.json();
+    console.log("Upload successful:", result);
 
-    // Create a new Blob with proper MIME type
-    const zipBlob = new Blob([content], { type: 'application/zip' });
-    console.log("Created ZIP blob with MIME type, size:", zipBlob.size);
+    // 4. Success UI
+    uploadStatusDiv.innerHTML = `
+      <h3 style="color: #28a745;">✅ Upload Complete!</h3>
+      <p class="text-white">Session ID: ${result.session_id}</p>
+      <button id="Restart" class="my-2 btn-modal" onclick="window.location.href='game.html?lvl=${currentLevel}'">
+        <h6>Play Again</h6>
+      </button>
+      <button id="Menu" class="my-2 btn-modal" onclick="window.location.href='index.html'">
+        <h6>Back to Menu</h6>
+      </button>
+    `;
 
-    // Use FileSaver.js - this bypasses ALL browser security issues!
-    console.log("Using FileSaver.js to download (bypasses browser security)...");
-    try {
-      saveAs(zipBlob, filename);
-      console.log("✅ FileSaver.js download triggered successfully!");
-    } catch (error) {
-      console.error("FileSaver.js error:", error);
-      console.log("Falling back to manual download method...");
+  } catch (err) {
+    console.error("Upload failed:", err);
 
-      // Fallback: Create download link
-      const url = URL.createObjectURL(zipBlob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      a.style.display = "none";
-      document.body.appendChild(a);
-
-      console.log("Triggering download via a.click()...");
-      a.click();
-
-      // DON'T cleanup too quickly - keep URL alive for download to complete
-      setTimeout(() => {
-        if (document.body.contains(a)) {
-          document.body.removeChild(a);
-        }
-        URL.revokeObjectURL(url);
-        console.log("Cleaned up download link (after 10 seconds)");
-      }, 10000);
-    }
-
-    // Method 2: Create visible fallback button (uses FileSaver.js on click)
-    setTimeout(() => {
-      const modal = document.querySelector(".modal-gameover");
-      if (modal) {
-        // Remove any existing fallback links
-        const existing = modal.querySelectorAll(".fallback-download-link");
-        existing.forEach(link => link.remove());
-
-        const fallbackButton = document.createElement("button");
-        fallbackButton.className = "fallback-download-link";
-        fallbackButton.textContent = "⬇️ CLICK HERE TO DOWNLOAD YOUR DATA";
-        fallbackButton.style.cssText = `
-          display: block;
-          margin: 20px auto;
-          padding: 15px 30px;
-          background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-          color: white;
-          font-size: 20px;
-          font-weight: bold;
-          text-decoration: none;
-          cursor: pointer;
-          text-align: center;
-          border-radius: 10px;
-          box-shadow: 0 4px 15px rgba(56, 239, 125, 0.4);
-          transition: transform 0.2s;
-          max-width: 400px;
-          border: none;
-        `;
-
-        fallbackButton.addEventListener('mouseenter', () => {
-          fallbackButton.style.transform = 'translateY(-2px)';
-        });
-
-        fallbackButton.addEventListener('mouseleave', () => {
-          fallbackButton.style.transform = 'translateY(0)';
-        });
-
-        // Use FileSaver.js when clicked
-        fallbackButton.addEventListener('click', () => {
-          console.log("Fallback button clicked, triggering download...");
-          try {
-            saveAs(zipBlob, filename);
-            console.log("✅ Download triggered via fallback button!");
-            fallbackButton.textContent = "✅ Download Started! Check your Downloads folder";
-            fallbackButton.style.background = "linear-gradient(135deg, #38ef7d 0%, #11998e 100%)";
-          } catch (err) {
-            console.error("Download error:", err);
-            alert("Download failed. Please try refreshing the page and playing again.");
-          }
-        });
-
-        modal.appendChild(fallbackButton);
-        console.log("Fallback download button created");
-      }
-    }, 500);
-
-    // Method 3: Add clear instructions
-    setTimeout(() => {
-      const modal = document.querySelector(".modal-gameover");
-      if (modal) {
-        const existingInst = modal.querySelector("#download-instructions");
-        if (existingInst) existingInst.remove();
-
-        const instruction = document.createElement("div");
-        instruction.id = "download-instructions";
-        instruction.style.cssText = `
-          color: #FFD700;
-          background: rgba(0,0,0,0.7);
-          padding: 15px;
-          margin-top: 20px;
-          border-radius: 5px;
-          font-size: 14px;
-          line-height: 1.5;
-          text-align: center;
-        `;
-        instruction.innerHTML = `
-          <strong>📥 Download Your Data:</strong><br><br>
-          <strong style="color: #38ef7d; font-size: 16px;">USE THE GREEN BUTTON ABOVE ☝️</strong><br><br>
-          File: <code style="background: rgba(255,255,255,0.2); padding: 2px 6px; border-radius: 3px;">${filename}</code><br>
-          Size: <strong>${Math.round(zipBlob.size / 1024)} KB</strong><br><br>
-          <em style="font-size: 12px;">If clicking doesn't work, try right-click → "Save link as..."</em>
-        `;
-
-        modal.appendChild(instruction);
-        console.log("Instructions added");
-      }
-    }, 700);
-
-    console.log("=== DOWNLOAD COMPLETE ===");
-  }).catch(function (err) {
-    console.error("ERROR generating zip:", err);
-    alert("Failed to generate download package: " + err.message);
-  });
+    // Error UI
+    uploadStatusDiv.innerHTML = `
+      <h3 style="color: #dc3545;">❌ Upload Failed</h3>
+      <p class="text-white">${err.message}</p>
+      <button class="btn btn-outline-light btn-sm mt-2" onclick="location.reload()">Try Again</button>
+    `;
+  }
 };
 
 init();

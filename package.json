@@ -1,0 +1,27 @@
+{
+  "name": "falling-words-game",
+  "version": "1.0.0",
+  "description": "<p align=\"center\"><img src=\"./images/logo-game.png\" alt=\"logo\"></p>",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/elroy-galbraith/falling-words-game.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/elroy-galbraith/falling-words-game/issues"
+  },
+  "homepage": "https://github.com/elroy-galbraith/falling-words-game#readme",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^5.2.1",
+    "form-data": "^4.0.5",
+    "multer": "^2.0.2",
+    "sqlite3": "^5.1.7"
+  }
+}

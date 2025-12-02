@@ -2,23 +2,22 @@
 const menuSound = document.getElementById('MenuSound');
 const buttons = document.querySelectorAll('button');
 
-let playMenuSound = menuSound.play();
-
 buttons.forEach((button) => {
-  if (playMenuSound !== undefined) {
-    playMenuSound
-      .then(() => {
-        button.addEventListener('mouseover', () => {
-          menuSound.pause();
-        });
-        button.addEventListener('mouseout', () => {
-          menuSound.currentTime = 0;
-        });
-      })
-      .then(() => {
-        button.addEventListener('mouseover', () => {
-          menuSound.play();
-        });
+  button.addEventListener('mouseover', () => {
+    // Only try to play if the user has interacted with the page
+    // (mouseover counts as interaction in some contexts, but usually click is needed first for audio context)
+    // We catch the error to prevent console spam if it fails
+    const playPromise = menuSound.play();
+    if (playPromise !== undefined) {
+      playPromise.catch(error => {
+        // Auto-play was prevented
+        // console.log("Audio play prevented:", error);
       });
-  }
+    }
+  });
+
+  button.addEventListener('mouseout', () => {
+    menuSound.pause();
+    menuSound.currentTime = 0;
+  });
 });

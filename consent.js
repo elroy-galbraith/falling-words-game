@@ -1,33 +1,34 @@
 // Consent Module for Data Collection
 // Generates UUID v4
 function generateUUID() {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-        const r = Math.random() * 16 | 0;
-        const v = c === 'x' ? r : (r & 0x3 | 0x8);
-        return v.toString(16);
-    });
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
 }
 
 // User Metadata Storage
 let userMetadata = {
-    hasConsented: false,
-    userId: null,
-    sex: null,
-    age: null,
-    stressLevel: null,
-    nationality: null,
-    motherTongue: null,
-    consentTimestamp: null
+  hasConsented: false,
+  userId: null,
+  sex: null,
+  age: null,
+  stressLevel: null,
+  nationality: null,
+  motherTongue: null,
+  consentTimestamp: null
 };
 
 // Show Consent Modal
 function showConsentModal() {
-    return new Promise((resolve) => {
-        const overlay = document.createElement('div');
-        overlay.className = 'consent-overlay';
-        overlay.id = 'consent-overlay';
+  return new Promise((resolve) => {
+    console.log("Creating consent overlay...");
+    const overlay = document.createElement('div');
+    overlay.className = 'consent-overlay';
+    overlay.id = 'consent-overlay';
 
-        overlay.innerHTML = `
+    overlay.innerHTML = `
       <div class="consent-modal">
         <h2>🎮 Research Participation Consent</h2>
         
@@ -93,76 +94,77 @@ function showConsentModal() {
       </div>
     `;
 
-        document.body.appendChild(overlay);
+    document.body.appendChild(overlay);
+    console.log("Consent overlay appended to body");
 
-        // Stress level selection
-        const stressOptions = overlay.querySelectorAll('.stress-option');
-        const stressInput = overlay.querySelector('#stress-level');
+    // Stress level selection
+    const stressOptions = overlay.querySelectorAll('.stress-option');
+    const stressInput = overlay.querySelector('#stress-level');
 
-        stressOptions.forEach(option => {
-            option.addEventListener('click', () => {
-                stressOptions.forEach(opt => opt.classList.remove('selected'));
-                option.classList.add('selected');
-                stressInput.value = option.dataset.value;
-                validateForm();
-            });
-        });
-
-        // Form validation
-        const form = overlay.querySelector('#consent-form');
-        const acceptBtn = overlay.querySelector('#accept-btn');
-        const inputs = form.querySelectorAll('input[required], select[required]');
-
-        function validateForm() {
-            let allValid = true;
-            inputs.forEach(input => {
-                if (!input.value || input.value === '') {
-                    allValid = false;
-                }
-            });
-            acceptBtn.disabled = !allValid;
-        }
-
-        inputs.forEach(input => {
-            input.addEventListener('input', validateForm);
-            input.addEventListener('change', validateForm);
-        });
-
-        // Decline button
-        overlay.querySelector('#decline-btn').addEventListener('click', () => {
-            userMetadata.hasConsented = false;
-            document.body.removeChild(overlay);
-            resolve(userMetadata);
-        });
-
-        // Accept button (form submit)
-        form.addEventListener('submit', (e) => {
-            e.preventDefault();
-
-            // Generate UUID and collect data
-            userMetadata.hasConsented = true;
-            userMetadata.userId = generateUUID();
-            userMetadata.sex = overlay.querySelector('#sex').value;
-            userMetadata.age = parseInt(overlay.querySelector('#age').value);
-            userMetadata.stressLevel = parseInt(overlay.querySelector('#stress-level').value);
-            userMetadata.nationality = overlay.querySelector('#nationality').value.trim();
-            userMetadata.motherTongue = overlay.querySelector('#mother-tongue').value.trim();
-            userMetadata.consentTimestamp = new Date().toISOString();
-
-            console.log('User consented with metadata:', userMetadata);
-
-            document.body.removeChild(overlay);
-            resolve(userMetadata);
-        });
+    stressOptions.forEach(option => {
+      option.addEventListener('click', () => {
+        stressOptions.forEach(opt => opt.classList.remove('selected'));
+        option.classList.add('selected');
+        stressInput.value = option.dataset.value;
+        validateForm();
+      });
     });
+
+    // Form validation
+    const form = overlay.querySelector('#consent-form');
+    const acceptBtn = overlay.querySelector('#accept-btn');
+    const inputs = form.querySelectorAll('input[required], select[required]');
+
+    function validateForm() {
+      let allValid = true;
+      inputs.forEach(input => {
+        if (!input.value || input.value === '') {
+          allValid = false;
+        }
+      });
+      acceptBtn.disabled = !allValid;
+    }
+
+    inputs.forEach(input => {
+      input.addEventListener('input', validateForm);
+      input.addEventListener('change', validateForm);
+    });
+
+    // Decline button
+    overlay.querySelector('#decline-btn').addEventListener('click', () => {
+      userMetadata.hasConsented = false;
+      document.body.removeChild(overlay);
+      resolve(userMetadata);
+    });
+
+    // Accept button (form submit)
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+
+      // Generate UUID and collect data
+      userMetadata.hasConsented = true;
+      userMetadata.userId = generateUUID();
+      userMetadata.sex = overlay.querySelector('#sex').value;
+      userMetadata.age = parseInt(overlay.querySelector('#age').value);
+      userMetadata.stressLevel = parseInt(overlay.querySelector('#stress-level').value);
+      userMetadata.nationality = overlay.querySelector('#nationality').value.trim();
+      userMetadata.motherTongue = overlay.querySelector('#mother-tongue').value.trim();
+      userMetadata.consentTimestamp = new Date().toISOString();
+
+      console.log('User consented with metadata:', userMetadata);
+
+      document.body.removeChild(overlay);
+      resolve(userMetadata);
+    });
+  });
 }
 
 // Get user metadata (to be called by app.js)
 function getUserMetadata() {
-    return userMetadata;
+  return userMetadata;
 }
 
 // Check if user has consented
 function hasUserConsented() {
-    return userMetadata.hasConsented;
+  return userMetadata.hasConsented;
 }

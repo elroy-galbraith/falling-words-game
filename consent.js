@@ -8,6 +8,60 @@ function generateUUID() {
   });
 }
 
+// localStorage key for consent data
+const CONSENT_STORAGE_KEY = 'voicefall_user_consent';
+
+// Save consent to localStorage
+function saveConsentToStorage(metadata) {
+  try {
+    localStorage.setItem(CONSENT_STORAGE_KEY, JSON.stringify(metadata));
+    console.log('Consent saved to localStorage');
+    return true;
+  } catch (e) {
+    console.error('Failed to save consent:', e);
+    return false;
+  }
+}
+
+// Load consent from localStorage
+function loadConsentFromStorage() {
+  try {
+    const stored = localStorage.getItem(CONSENT_STORAGE_KEY);
+    if (!stored) return null;
+
+    const parsed = JSON.parse(stored);
+
+    // Validate required fields
+    const requiredFields = ['hasConsented', 'userId', 'sex', 'age', 'stressLevel', 'nationality', 'motherTongue', 'consentTimestamp'];
+    const isValid = requiredFields.every(field => parsed[field] !== null && parsed[field] !== undefined);
+
+    if (!isValid || !parsed.hasConsented) {
+      console.warn('Invalid or declined consent in storage, clearing');
+      clearConsentFromStorage();
+      return null;
+    }
+
+    console.log('Valid consent loaded from localStorage');
+    return parsed;
+  } catch (e) {
+    console.error('Failed to load consent:', e);
+    clearConsentFromStorage();
+    return null;
+  }
+}
+
+// Clear consent from localStorage
+function clearConsentFromStorage() {
+  try {
+    localStorage.removeItem(CONSENT_STORAGE_KEY);
+    console.log('Consent cleared from localStorage');
+    return true;
+  } catch (e) {
+    console.error('Failed to clear consent:', e);
+    return false;
+  }
+}
+
 // User Metadata Storage
 let userMetadata = {
   hasConsented: false,
@@ -23,6 +77,17 @@ let userMetadata = {
 // Show Consent Modal
 function showConsentModal() {
   return new Promise((resolve) => {
+    // Check for existing consent first
+    const storedConsent = loadConsentFromStorage();
+    if (storedConsent) {
+      // Auto-populate userMetadata from localStorage
+      Object.assign(userMetadata, storedConsent);
+      console.log('Auto-loaded consent, skipping modal');
+      resolve(userMetadata);
+      return; // Skip showing modal entirely
+    }
+
+    // If no stored consent, proceed with normal modal display
     console.log("Creating consent overlay...");
     const overlay = document.createElement('div');
     overlay.className = 'consent-overlay';
@@ -153,6 +218,9 @@ function showConsentModal() {
 
       console.log('User consented with metadata:', userMetadata);
 
+      // Save to localStorage
+      saveConsentToStorage(userMetadata);
+
       document.body.removeChild(overlay);
       resolve(userMetadata);
     });
@@ -167,4 +235,20 @@ function getUserMetadata() {
 // Check if user has consented
 function hasUserConsented() {
   return userMetadata.hasConsented;
+}
+
+// Reset consent (called from reset button)
+function resetConsent() {
+  clearConsentFromStorage();
+  userMetadata = {
+    hasConsented: false,
+    userId: null,
+    sex: null,
+    age: null,
+    stressLevel: null,
+    nationality: null,
+    motherTongue: null,
+    consentTimestamp: null
+  };
+  console.log('Consent reset - will show modal on next game');
 }

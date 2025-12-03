@@ -91,6 +91,13 @@
               </div>
             </div>
           </div>
+          <div class="row justify-content-center mt-3">
+            <div class="col-4">
+              <button id="ResetConsent" class="btn-reset-consent">
+                🔄 Reset My Consent Data
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -104,6 +111,7 @@
       <source src="./sound/homesound.mp3" type="audio/mp3" />
     </audio>
     <script src="./sound-buttons.js"></script>
+    <script src="./consent.js"></script>
     <script>
       // PASS THROUGH HTTP GET LEVEL SELECTED
       function buttonValue(btnID) {
@@ -115,6 +123,35 @@
       // DEFAULT VOLUME HOME SONG
       const homeSound = document.getElementById('HomeSound');
       homeSound.volume = 0.05;
+
+      // Reset consent button handler
+      document.getElementById('ResetConsent')?.addEventListener('click', () => {
+        const confirmed = confirm(
+          'This will clear your saved consent information.\n\n' +
+          'You will need to provide consent again when you start a new game.\n\n' +
+          'Continue?'
+        );
+        if (confirmed) {
+          if (typeof resetConsent === 'function') {
+            resetConsent();
+            alert('✓ Consent data cleared successfully!\n\nYou will see the consent form next time you play.');
+            // Update button visibility
+            const resetBtn = document.getElementById('ResetConsent');
+            if (resetBtn) {
+              resetBtn.style.display = 'none';
+            }
+          } else {
+            console.error('resetConsent function not found');
+          }
+        }
+      });
+
+      // Show/hide reset button based on whether consent exists
+      const resetBtn = document.getElementById('ResetConsent');
+      if (resetBtn) {
+        const hasStoredConsent = localStorage.getItem('voicefall_user_consent');
+        resetBtn.style.display = hasStoredConsent ? 'block' : 'none';
+      }
     </script>
   </body>
 </html>
